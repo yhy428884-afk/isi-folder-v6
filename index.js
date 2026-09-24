@@ -34,6 +34,7 @@ let connected = false
 let startedAt = Date.now()
 let reconnectTimer = null
 let pairingRequested = false
+let pairingInterval = null
 
 // One snake game per WhatsApp chat.
 const games = new Map()
@@ -606,12 +607,20 @@ async function startBot() {
       qrcode.generate(qr, { small: true })
     }
     if (connection === 'connecting') { connected = false; logger.info('WhatsApp: connecting...') }
-    if (connection === 'open') { connected = true; pairingRequested = false; startedAt = Date.now(); logger.info(`✅ ${BOT_NAME} ONLINE`) }
+    if (connection === 'open') {
+      connected = true; pairingRequested = false; startedAt = Date.now()
+      if (pairingInterval) { clearInterval(pairingInterval); pairingInterval = null }
+      logger.info(`✅ ${BOT_NAME} ONLINE`)
+    }
     if (connection === 'close') {
       connected = false
       const statusCode = lastDisconnect?.error?.output?.statusCode ?? lastDisconnect?.error?.statusCode ?? null
       logger.warn({ statusCode }, 'WhatsApp connection closed')
-      if (statusCode === DisconnectReason.loggedOut) { logger.error('Session logged out. Delete persistent session and pair again.'); return }
+      if (statusCode === DisconnectReason.loggedOut) {
+        if (pairingInterval) { clearInterval(pairingInterval); pairingInterval = null }
+        logger.error('Session logged out. Delete persistent session and pair again.')
+        return
+      }
       scheduleReconnect(`code-${statusCode ?? 'unknown'}`)
     }
   })
@@ -627,13 +636,19 @@ async function startBot() {
   })
   if (PAIRING_NUMBER && !state.creds.registered && !pairingRequested) {
     pairingRequested = true
-    setTimeout(async () => {
+    const requestCode = async () => {
+      if (connected || state.creds.registered) return
       try {
         const code = await sock.requestPairingCode(PAIRING_NUMBER)
         logger.info(`🔐 PAIRING CODE: ${code}`)
         logger.info('WhatsApp > Linked devices > Link a device > Link with phone number')
-      } catch (error) { pairingRequested = false; logger.error({ err: error }, 'Failed to request pairing code') }
-    }, 1500)
+        logger.info('Kode ini berlaku singkat. Kode baru akan diminta otomatis dalam 40 detik jika belum terhubung.')
+      } catch (error) {
+        logger.error({ err: error }, 'Failed to request pairing code')
+      }
+    }
+    setTimeout(requestCode, 1500)
+    pairingInterval = setInterval(requestCode, 40000)
   }
 }
 
