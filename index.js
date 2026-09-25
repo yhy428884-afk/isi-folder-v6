@@ -5,7 +5,8 @@ import qrcode from 'qrcode-terminal'
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
-  Browsers
+  Browsers,
+  fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -591,8 +592,17 @@ function scheduleReconnect(reason) {
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR)
+  let waVersion
+  try {
+    const { version, isLatest } = await fetchLatestBaileysVersion()
+    waVersion = version
+    logger.info({ version, isLatest }, 'Using WhatsApp Web version')
+  } catch (error) {
+    logger.warn({ err: error }, 'Failed to fetch latest WA version, using library default')
+  }
   sock = makeWASocket({
     auth: state,
+    version: waVersion,
     browser: Browsers.ubuntu(BOT_NAME),
     printQRInTerminal: false,
     logger,
