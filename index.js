@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import pino from 'pino'
-import qrcode from 'qrcode-terminal'
+import qrcodeTerminal from 'qrcode-terminal'
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
@@ -613,8 +613,11 @@ async function startBot() {
   sock.ev.on('creds.update', saveCreds)
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr && !PAIRING_NUMBER) {
-      logger.info('Scan QR berikut dengan WhatsApp:')
-      qrcode.generate(qr, { small: true })
+      logger.info('═══════════════════════════════════════════')
+      logger.info('📱 SCAN QR CODE DENGAN WHATSAPP ANDA:')
+      logger.info('═══════════════════════════════════════════')
+      qrcodeTerminal.generate(qr, { small: true })
+      logger.info('═══════════════════════════════════════════')
     }
     if (connection === 'connecting') { connected = false; logger.info('WhatsApp: connecting...') }
     if (connection === 'open') {
